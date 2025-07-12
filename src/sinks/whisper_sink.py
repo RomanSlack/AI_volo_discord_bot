@@ -31,7 +31,8 @@ if DEVICE == "cuda":
         logger.warning("GPU has less than 5GB of RAM. Switching to CPU.")
         DEVICE = "cpu"
 
-audio_model = WhisperModel(WHISPER_MODEL, device=DEVICE, compute_type=WHISPER__PRECISION)
+# Only load the model when using local transcription
+audio_model = None
 
 
 
@@ -150,6 +151,11 @@ class WhisperSink(Sink):
                 logger.info(f"OpenAI Transcription: {openai_transcription.text}")
                 return openai_transcription.text
             else:               
+                # Initialize the model if not already done
+                global audio_model
+                if audio_model is None:
+                    audio_model = WhisperModel(WHISPER_MODEL, device=DEVICE, compute_type=WHISPER__PRECISION)
+                
                 # The whisper model
                 temp_file.seek(0)
                 segments, info = audio_model.transcribe(
@@ -163,7 +169,7 @@ class WhisperSink(Sink):
                         threshold=0.8
                     ),
                     no_speech_threshold=0.6,
-                    initial_prompt="You are writing the transcriptions for a D&D game.",
+                    initial_prompt="You are transcribing a professional meeting or discussion.",
                 )
 
                 segments = list(segments)

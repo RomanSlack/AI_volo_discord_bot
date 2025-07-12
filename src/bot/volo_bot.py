@@ -20,7 +20,7 @@ class VoloBot(discord.Bot):
     def __init__(self, loop):
 
         super().__init__(command_prefix="!", loop=loop,
-                         activity=discord.CustomActivity(name='Transcribing Audio to Text'))
+                         activity=discord.CustomActivity(name='Professional Meeting Transcription'))
         self.guild_to_helper = {}
         self.guild_is_recording = {}
         self.guild_whisper_sinks = {}

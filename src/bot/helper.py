@@ -5,9 +5,9 @@ from base64 import b64decode
 
 import discord
 
-BOT_NAME = "VOLO 💤"
-BOT_AWAKE_NAME = "VOLO 💬"
-BOT_PROCESSING_NAME = "VOLO 💡"
+BOT_NAME = "Scribe 📝"
+BOT_AWAKE_NAME = "Scribe 🎯"
+BOT_PROCESSING_NAME = "Scribe ⏳"
 
 logger = logging.getLogger(__name__)
 
