@@ -208,31 +208,13 @@ class WhisperSink(Sink):
         return transcription
     
     def get_transcriptions(self):
-        """Retrieve all transcriptions from the queue, format them to only include data, begin, and user_id."""
+        """Retrieve all transcriptions from the queue as simple text lines."""
         transcriptions = []
-        while not self.transcription_queue.empty():
-            log_message = self.transcription_queue.get_nowait()
-
-            # Assuming log_message is a dictionary (or string in JSON format)
-            if isinstance(log_message, str):
-                log_message = json.loads(log_message)  # Convert from string to dictionary if needed
-
-            # Extract only the desired fields from the log message
-            begin = log_message.get("begin", "Unknown begin")
-            user_id = log_message.get("user_id", "Unknown user")
-            data = log_message.get("data", "")
-
-            # Format the transcription entry with only the relevant fields
-            formatted_entry = (
-                f"Begin: {begin}\n"
-                f"User ID: {user_id}\n"
-                f"Data: {data}\n"
-                "-------------------------\n"
-            )
-
-            # Add the formatted entry to the transcription list
-            transcriptions.append(formatted_entry)
-
+        while not self.transcription_output_queue.empty():
+            transcription_text = self.transcription_output_queue.get_nowait()
+            # Each item is now just a string of transcribed text
+            if transcription_text and transcription_text.strip():
+                transcriptions.append(transcription_text.strip())
         return transcriptions
     
     def insert_voice(self):
@@ -302,30 +284,16 @@ class WhisperSink(Sink):
                 self.speakers.remove(speaker)
     
     def write_transcription_log(self, speaker, transcription):
-        # Convert first_word and last_word Unix timestamps to datetime
-        first_word_time = datetime.fromtimestamp(speaker.first_word).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
-        last_word_time = datetime.fromtimestamp(speaker.last_word).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
-        # Prepare the log data as a dictionary
-        log_data = {
-            "date": first_word_time[:10],                  # Date (from first_word)
-            "begin": first_word_time[11:],       # First word time (HH:MM:SS.ss)
-            "end": last_word_time[11:],         # Last word time (HH:MM:SS.ss)
-            "user_id": speaker.user,                       # User ID
-            "player": speaker.player,
-            "character": speaker.character,
-            "event_source": "Discord",                     # Event source
-            "data": transcription                          # Transcription text
-        }
-
-        # Convert the log data to JSON
-        log_message = json.dumps(log_data)
-
+        # Skip empty transcriptions
+        if not transcription or not transcription.strip():
+            return
+        
         # Get the transcription logger
         transcription_logger = logging.getLogger('transcription')
-        # Log the message
-        transcription_logger.info(log_message)
+        # Log only the transcribed text, one line per utterance
+        transcription_logger.info(transcription.strip())
         # Place into queue for processing
-        self.transcription_output_queue.put_nowait(log_message)
+        self.transcription_output_queue.put_nowait(transcription.strip())
     
 
     @Filters.container
