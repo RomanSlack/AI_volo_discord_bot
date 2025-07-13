@@ -211,12 +211,57 @@ if __name__ == "__main__":
             pdf_filename = f"summary_{timestamp}.pdf"
             pdf_file_path = await markdown_to_pdf(markdown_summary, pdf_filename)
             
-            # Send the PDF as a followup
+            # Send the PDF as a followup in the channel (not ephemeral)
             if os.path.exists(pdf_file_path):
                 try:
                     with open(pdf_file_path, "rb") as f:
                         discord_file = discord.File(f, filename=pdf_filename)
-                        await ctx.followup.send("✅ Here is your AI-generated meeting summary:", file=discord_file)
+                        
+                        # Create an embed for a professional presentation
+                        embed = discord.Embed(
+                            title="📄 Meeting Summary Generated",
+                            description="Roman's AI Note-Taking Bot has processed the voice transcription and generated a comprehensive meeting summary.",
+                            color=discord.Color.blue()
+                        )
+                        embed.add_field(
+                            name="🤖 Powered by",
+                            value="OpenAI GPT-4o + Professional Transcription",
+                            inline=True
+                        )
+                        embed.add_field(
+                            name="📝 Contains",
+                            value="Key points, decisions, action items, and next steps",
+                            inline=True
+                        )
+                        embed.set_footer(text="Scribe Bot - Professional Meeting Documentation")
+                        
+                        # Try to find and post to general channel
+                        general_channel = None
+                        
+                        # Look for common general channel names
+                        for channel in ctx.guild.text_channels:
+                            if channel.name.lower() in ['general', 'main', 'chat', 'lobby', 'discussion']:
+                                general_channel = channel
+                                break
+                        
+                        # If no general channel found, use the first text channel
+                        if not general_channel and ctx.guild.text_channels:
+                            general_channel = ctx.guild.text_channels[0]
+                        
+                        # Post to general channel if found, otherwise use current channel
+                        target_channel = general_channel if general_channel else ctx.channel
+                        
+                        await target_channel.send(
+                            content="**Roman's Note-Taking Bot** 🎯\n\n✅ **Meeting Summary Complete!** This PDF contains an AI-generated summary of your discussion, including key decisions, action items, and next steps. Perfect for sharing with team members who missed the meeting!",
+                            embed=embed,
+                            file=discord_file
+                        )
+                        
+                        # Confirm to user where it was posted
+                        if general_channel and general_channel != ctx.channel:
+                            await ctx.followup.send(f"✅ Summary posted to {general_channel.mention}")
+                        else:
+                            await ctx.followup.send("✅ Summary posted!")
                 except Exception as e:
                     await ctx.followup.send(f"❌ Error sending PDF: {str(e)}")
             else:
