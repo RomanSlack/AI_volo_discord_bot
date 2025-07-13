@@ -177,8 +177,6 @@ if __name__ == "__main__":
 
     @bot.slash_command(name="summarize", description="Generate an AI summary of a transcription session.")
     async def summarize(ctx: discord.context.ApplicationContext, transcription_file: str):
-        await ctx.trigger_typing()
-        
         # Validate the transcription file path
         log_directory = '.logs/transcripts'
         if not transcription_file.endswith('.log'):
@@ -186,7 +184,7 @@ if __name__ == "__main__":
         
         transcription_path = os.path.join(log_directory, transcription_file)
         
-        # Check if file exists
+        # Check if file exists first (quick validation)
         if not os.path.exists(transcription_path):
             # List available files to help user
             try:
@@ -200,6 +198,9 @@ if __name__ == "__main__":
                 await ctx.respond("Transcription file not found.", ephemeral=True)
             return
         
+        # Acknowledge the command immediately
+        await ctx.respond("🔄 Generating AI summary... This may take a moment.", ephemeral=False)
+        
         try:
             # Generate the summary using OpenAI
             markdown_summary = await generate_meeting_summary(transcription_path)
@@ -210,23 +211,23 @@ if __name__ == "__main__":
             pdf_filename = f"summary_{timestamp}.pdf"
             pdf_file_path = await markdown_to_pdf(markdown_summary, pdf_filename)
             
-            # Send the PDF as an attachment
+            # Send the PDF as a followup
             if os.path.exists(pdf_file_path):
                 try:
                     with open(pdf_file_path, "rb") as f:
                         discord_file = discord.File(f, filename=pdf_filename)
-                        await ctx.respond("Here is the AI-generated meeting summary:", file=discord_file)
+                        await ctx.followup.send("✅ Here is your AI-generated meeting summary:", file=discord_file)
                 except Exception as e:
-                    await ctx.respond(f"Error sending PDF: {str(e)}", ephemeral=True)
+                    await ctx.followup.send(f"❌ Error sending PDF: {str(e)}")
             else:
-                await ctx.respond("Failed to generate PDF summary.", ephemeral=True)
+                await ctx.followup.send("❌ Failed to generate PDF summary.")
                 
         except FileNotFoundError:
-            await ctx.respond("Transcription file not found.", ephemeral=True)
+            await ctx.followup.send("❌ Transcription file not found.")
         except ValueError as e:
-            await ctx.respond(f"Error: {str(e)}", ephemeral=True)
+            await ctx.followup.send(f"❌ Error: {str(e)}")
         except Exception as e:
-            await ctx.respond(f"Failed to generate summary: {str(e)}", ephemeral=True)
+            await ctx.followup.send(f"❌ Failed to generate summary: {str(e)}")
 
 
 

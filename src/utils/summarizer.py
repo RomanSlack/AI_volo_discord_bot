@@ -151,6 +151,16 @@ async def markdown_to_pdf(markdown_content: str, output_filename: str = None) ->
         ),
     }
 
+    def process_markdown_text(text):
+        """Convert markdown formatting to ReportLab markup"""
+        # Bold text: **text** -> <b>text</b>
+        text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
+        # Italic text: *text* -> <i>text</i>
+        text = re.sub(r'\*(.*?)\*', r'<i>\1</i>', text)
+        # Code: `text` -> <font name="Courier">text</font>
+        text = re.sub(r'`(.*?)`', r'<font name="Courier">\1</font>', text)
+        return text
+    
     # Parse markdown content
     lines = markdown_content.split('\n')
     
@@ -162,22 +172,23 @@ async def markdown_to_pdf(markdown_content: str, output_filename: str = None) ->
             
         # Handle headers
         if line.startswith('# '):
-            text = line[2:].strip()
+            text = process_markdown_text(line[2:].strip())
             elements.append(Paragraph(text, styles['title']))
         elif line.startswith('## '):
-            text = line[3:].strip()
+            text = process_markdown_text(line[3:].strip())
             elements.append(Paragraph(text, styles['heading']))
         elif line.startswith('### '):
-            text = line[4:].strip()
+            text = process_markdown_text(line[4:].strip())
             elements.append(Paragraph(text, styles['subheading']))
         # Handle bullet points
         elif line.startswith('- '):
-            text = line[2:].strip()
+            text = process_markdown_text(line[2:].strip())
             elements.append(Paragraph(f"• {text}", styles['bullet']))
         # Handle regular text
         else:
             if line:
-                elements.append(Paragraph(line, styles['body']))
+                text = process_markdown_text(line)
+                elements.append(Paragraph(text, styles['body']))
 
     # Build the PDF
     doc.build(elements)
