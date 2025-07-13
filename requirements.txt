@@ -9,6 +9,7 @@ python-dotenv
 
 # Report Generators
 reportlab
+markdown
 
 # Lets keep our code clean
 black

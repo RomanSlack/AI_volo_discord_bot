@@ -25,6 +25,7 @@ class VoloBot(discord.Bot):
         self.guild_is_recording = {}
         self.guild_whisper_sinks = {}
         self.guild_whisper_message_tasks = {}
+        self.guild_session_files = {}  # Track session log files per guild
         self.player_map = {}
         self._is_ready = False
         if TRANSCRIPTION_METHOD == "openai":
@@ -65,6 +66,15 @@ class VoloBot(discord.Bot):
         subscription checks and limits.
         """
         try:
+            # Create a new session log file for this guild
+            from datetime import datetime
+            import os
+            current_timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+            log_directory = '.logs/transcripts'
+            os.makedirs(log_directory, exist_ok=True)
+            session_filename = os.path.join(log_directory, f"{current_timestamp}-transcription.log")
+            self.guild_session_files[ctx.guild_id] = session_filename
+            
             self.start_whisper_sink(ctx)
             self.guild_is_recording[ctx.guild_id] = True
         except Exception as e:
@@ -84,6 +94,9 @@ class VoloBot(discord.Bot):
 
         transcript_queue = asyncio.Queue()
 
+        # Get the session log file for this guild
+        session_log_file = self.guild_session_files.get(ctx.guild_id)
+        
         whisper_sink = WhisperSink(
             transcript_queue,
             self.loop,
@@ -91,6 +104,7 @@ class VoloBot(discord.Bot):
             max_speakers=10,
             transcriber_type=self.transcriber_type,
             player_map=self.player_map,
+            session_log_file=session_log_file,
         )
 
         self.guild_to_helper[ctx.guild_id].vc.start_recording(
@@ -120,6 +134,9 @@ class VoloBot(discord.Bot):
             logger.debug("Cancelling whisper message task.")
             whisper_message_task.cancel()
             del self.guild_whisper_message_tasks[guild_id]
+        
+        # Keep the session file reference for potential summarization
+        # Don't delete it here as user might want to summarize later
 
     def cleanup_sink(self, ctx: discord.context.ApplicationContext):
         guild_id = ctx.guild_id

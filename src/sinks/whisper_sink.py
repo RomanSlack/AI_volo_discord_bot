@@ -73,6 +73,7 @@ class WhisperSink(Sink):
         player_map={},
         data_length=50000,
         max_speakers=-1,
+        session_log_file=None,
     ):
         self.queue = transcript_queue
         self.transcription_output_queue = asyncio.Queue()
@@ -94,6 +95,7 @@ class WhisperSink(Sink):
         self.voice_queue = Queue()
         self.executor = ThreadPoolExecutor(max_workers=8)  # TODO: Adjust this
         self.player_map = player_map
+        self.session_log_file = session_log_file
 
     def start_voice_thread(self, on_exception=None):
         def thread_exception_hook(args):
@@ -288,10 +290,11 @@ class WhisperSink(Sink):
         if not transcription or not transcription.strip():
             return
         
-        # Get the transcription logger
-        transcription_logger = logging.getLogger('transcription')
-        # Log only the transcribed text, one line per utterance
-        transcription_logger.info(transcription.strip())
+        # Write to session-specific log file
+        if self.session_log_file:
+            with open(self.session_log_file, 'a', encoding='utf-8') as f:
+                f.write(transcription.strip() + '\n')
+        
         # Place into queue for processing
         self.transcription_output_queue.put_nowait(transcription.strip())
     

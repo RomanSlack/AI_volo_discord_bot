@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from src.bot.helper import BotHelper
 from src.config.cliargs import CLIArgs
 from src.utils.commandline import CommandLine
-from src.utils.pdf_generator import pdf_generator
+from src.utils.summarizer import generate_meeting_summary, markdown_to_pdf
 
 load_dotenv()
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
@@ -33,9 +33,9 @@ def configure_logging():
     os.makedirs(log_directory, exist_ok=True) 
     os.makedirs(pdf_directory, exist_ok=True)  
 
-    # Get the current date for the log file name
-    current_date = datetime.now().strftime('%Y-%m-%d')
-    log_filename = os.path.join(log_directory, f"{current_date}-transcription.log")
+    # Get the current timestamp for the log file name
+    current_timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    log_filename = os.path.join(log_directory, f"{current_timestamp}-transcription.log")
 
     # Custom logging format (date with milliseconds, message)
     log_format = '%(asctime)s %(name)s: %(message)s'
@@ -52,21 +52,9 @@ def configure_logging():
                             format=log_format,
                             datefmt=date_format)
     
-    # Set up the transcription logger
+    # Set up the transcription logger (will be configured per session)
     transcription_logger = logging.getLogger('transcription')
     transcription_logger.setLevel(logging.INFO)
-
-    # File handler for transcription logs (append mode)
-    file_handler = logging.FileHandler(log_filename, mode='a')
-    file_handler.setLevel(logging.INFO)
-    
-    # Custom formatter WITHOUT the automatic timestamp
-    file_handler.setFormatter(logging.Formatter(
-        '%(message)s'  # Only log the custom message, no automatic timestamp
-    ))
-
-    # Add the handler to the transcription logger
-    transcription_logger.addHandler(file_handler)
 
 if __name__ == "__main__":
     args = CommandLine.read_command_line()
@@ -187,41 +175,60 @@ if __name__ == "__main__":
 
         await ctx.respond("Disconnected successfully. Thank you for using Scribe.", ephemeral=False)
 
-    @bot.slash_command(name="generate_pdf", description="Generate a PDF of the transcriptions.")
-    async def generate_pdf(ctx: discord.context.ApplicationContext):
-        guild_id = ctx.guild_id
-        helper = bot.guild_to_helper.get(guild_id, None)
-        if not helper:
-            await ctx.respond("Well, that's akward. I dont seem to be in your party.", ephemeral=True)
-            return
-        transcription = await bot.get_transcription(ctx)
-        if not transcription:
-            await ctx.respond("No transcriptions available to generate PDF.", ephemeral=True)
-            return
-        pdf_file_path = await pdf_generator(transcription)
-        # Send the PDF as an attachment
-        if os.path.exists(pdf_file_path):
+    @bot.slash_command(name="summarize", description="Generate an AI summary of a transcription session.")
+    async def summarize(ctx: discord.context.ApplicationContext, transcription_file: str):
+        await ctx.trigger_typing()
+        
+        # Validate the transcription file path
+        log_directory = '.logs/transcripts'
+        if not transcription_file.endswith('.log'):
+            transcription_file += '.log'
+        
+        transcription_path = os.path.join(log_directory, transcription_file)
+        
+        # Check if file exists
+        if not os.path.exists(transcription_path):
+            # List available files to help user
             try:
-                with open(pdf_file_path, "rb") as f:
-                    discord_file = discord.File(f, filename=f"session_transcription.pdf")
-                    await ctx.respond("Here is the transcription from this session:", file=discord_file)
-            finally:
-                os.remove(pdf_file_path)
-        else:
-            await ctx.respond("No transcription file could be generated.", ephemeral=True)
-
-
-    @bot.slash_command(name="update_participant_map", description="Update participant mapping for better transcription identification.")
-    async def update_player_map(ctx: discord.context.ApplicationContext):
-        if bot.guild_is_recording.get(ctx.guild_id, False):
-            await ctx.respond("Cannot update participant mapping during active transcription.", ephemeral=True)
+                available_files = [f for f in os.listdir(log_directory) if f.endswith('.log')]
+                if available_files:
+                    file_list = '\n'.join(available_files[:10])  # Show max 10 files
+                    await ctx.respond(f"Transcription file not found. Available files:\n```\n{file_list}\n```", ephemeral=True)
+                else:
+                    await ctx.respond("No transcription files found.", ephemeral=True)
+            except:
+                await ctx.respond("Transcription file not found.", ephemeral=True)
             return
+        
         try:
-            await bot.update_player_map(ctx)
-            await ctx.respond("Participant mapping updated successfully.")
+            # Generate the summary using OpenAI
+            markdown_summary = await generate_meeting_summary(transcription_path)
+            
+            # Convert to PDF
+            from datetime import datetime
+            timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+            pdf_filename = f"summary_{timestamp}.pdf"
+            pdf_file_path = await markdown_to_pdf(markdown_summary, pdf_filename)
+            
+            # Send the PDF as an attachment
+            if os.path.exists(pdf_file_path):
+                try:
+                    with open(pdf_file_path, "rb") as f:
+                        discord_file = discord.File(f, filename=pdf_filename)
+                        await ctx.respond("Here is the AI-generated meeting summary:", file=discord_file)
+                except Exception as e:
+                    await ctx.respond(f"Error sending PDF: {str(e)}", ephemeral=True)
+            else:
+                await ctx.respond("Failed to generate PDF summary.", ephemeral=True)
+                
+        except FileNotFoundError:
+            await ctx.respond("Transcription file not found.", ephemeral=True)
+        except ValueError as e:
+            await ctx.respond(f"Error: {str(e)}", ephemeral=True)
         except Exception as e:
-            await ctx.respond(f"Unable to update participant mapping:\n{e}", ephemeral=True)
-            raise e
+            await ctx.respond(f"Failed to generate summary: {str(e)}", ephemeral=True)
+
+
 
 
     @bot.slash_command(name="help", description="Show the help message.")
@@ -236,9 +243,7 @@ if __name__ == "__main__":
             discord.EmbedField(
                 name="/stop", value="Stop transcription and save results.", inline=True),
             discord.EmbedField(
-                name="/generate_pdf", value="Generate PDF report of transcriptions.", inline=True),
-            discord.EmbedField(
-                name="/update_participant_map", value="Update participant identification mapping.", inline=True),
+                name="/summarize", value="Generate AI summary of transcription file.", inline=True),
             discord.EmbedField(
                 name="/help", value="Show this help message.", inline=True),
         ]
