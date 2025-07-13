@@ -1,7 +1,12 @@
 
-# Scribe - Professional Discord Transcription Bot
+# OpenNoteV2 - Professional Discord Transcription Bot
 
-This project is a Discord bot that provides professional voice transcription services for meetings, discussions, and voice channels. It uses OpenAI Whisper for accurate audio transcription and supports multiple participants simultaneously.
+[![Python](https://img.shields.io/badge/Python-3.7+-blue.svg)](https://www.python.org/downloads/)
+[![Discord.py](https://img.shields.io/badge/discord.py-2.0+-blue.svg)](https://discordpy.readthedocs.io/)
+[![OpenAI](https://img.shields.io/badge/OpenAI-Whisper-green.svg)](https://openai.com/research/whisper)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+A Discord bot that transcribes voice channels and generates AI-powered meeting summaries. Forked from [volo_discord_bot](https://github.com/joshinryz/volo_discord_bot).
 
 ## Features
 
@@ -75,12 +80,12 @@ To set up and run this Discord bot, follow these steps:
 
 2. **Bot Commands:**
 
-   - `/connect`: Connect Scribe to your voice channel
+   - `/connect`: Connect to your voice channel
    - `/scribe`: Start transcribing the voice channel
    - `/stop`: Stop transcription and save results
    - `/disconnect`: Disconnect from the voice channel
-   - `/generate_pdf`: Generate a PDF report of transcriptions
-   - `/update_participant_map`: Update participant identification mapping
+   - `/summarize`: Generate AI summary and PDF report
+   - `/help`: Show command help
 
 ## Use Cases
 
