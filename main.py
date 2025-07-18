@@ -61,7 +61,8 @@ if __name__ == "__main__":
     CLIArgs.update_from_args(args)
 
     configure_logging()
-    loop = asyncio.get_event_loop()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     
     from src.bot.volo_bot import VoloBot  
     

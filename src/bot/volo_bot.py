@@ -18,8 +18,12 @@ logger = logging.getLogger(__name__)
 
 class VoloBot(discord.Bot):
     def __init__(self, loop):
-
+        intents = discord.Intents.default()
+        intents.voice_states = True
+        intents.guilds = True
+        
         super().__init__(command_prefix="!", loop=loop,
+                         intents=intents,
                          activity=discord.CustomActivity(name='Professional Meeting Transcription'))
         self.guild_to_helper = {}
         self.guild_is_recording = {}
@@ -44,7 +48,8 @@ class VoloBot(discord.Bot):
 
 
     async def close_consumers(self):
-        await self.consumer_manager.close()
+        # No consumer manager to close
+        pass
 
     def _close_and_clean_sink_for_guild(self, guild_id: int):
         whisper_sink: WhisperSink | None = self.guild_whisper_sinks.get(

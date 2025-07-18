@@ -19,6 +19,7 @@ pylint
 openai
 faster_whisper
 speechrecognition
+pydub
 
 # torch support of cuda 12
 #--extra-index-url https://download.pytorch.org/whl/cu121
